@@ -2,7 +2,7 @@
 
 My attempt to allow construction of enum-like hierarchy of enum instances (and objects in general) for Java ... highly beneficiel whenever you're trying to automatically create domains, e.g., system of entities for RPGs.
 
-##MAVEN [REPOSITORY](http://diana.ms.mff.cuni.cz:8081/artifactory)
+## MAVEN [REPOSITORY](http://diana.ms.mff.cuni.cz:8081/artifactory)
 
     <repository>
         <id>amis-artifactory</id>
@@ -10,7 +10,9 @@ My attempt to allow construction of enum-like hierarchy of enum instances (and o
         <url>http://diana.ms.mff.cuni.cz:8081/artifactory/repo</url>
     </repository>
     
-##MAVEN DEPENDENCY
+## MAVEN DEPENDENCY
+
+    Compiled with Java 1.8!
 
     <dependency>
         <groupId>cz.cuni.amis.utils</groupId>
