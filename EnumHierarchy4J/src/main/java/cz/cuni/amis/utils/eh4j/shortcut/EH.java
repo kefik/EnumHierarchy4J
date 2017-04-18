@@ -48,6 +48,17 @@ public class EH {
 	// ===================
 	
 	/**
+	 * Returns name of the enumInstance.
+	 * @param enumInstance
+	 * @return
+	 */
+	public static String name(Object enumInstance) {
+		EnumObject eo = getEnumObject(enumInstance);
+		if (eo == null) return "null";
+		return eo.name;
+	}
+	
+	/**
 	 * Returns user enum instances defined for given 'enumClass'.
 	 * @param enumClass
 	 * @return
@@ -116,6 +127,16 @@ public class EH {
 		EnumType type = type(enumInstance);
 		if (type == null) return false;
 		return type.isA(ofThisEnumInstance);
+	}
+	
+	public static boolean isA(Object enumInstance, Class enumClass) {
+		EnumObject enumObject = getEnumObject(enumInstance);
+		return enumObject.isA(enumClass);		
+	}
+	
+	public static <T> T getAs(Object enumInstance, Class<T> enumClass) {
+		EnumObject enumObject = getEnumObject(enumInstance);
+		return enumObject.getAs(enumClass);
 	}
 	
 }

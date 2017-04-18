@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.swing.text.html.parser.Entity;
+
 /**
  * Parallel to Java "enum" that cannot extend another enum; a.k.a. EnumClass.
  * 
@@ -39,14 +41,35 @@ public class EnumType {
 	 * KEY   == enum within parent class representing THIS enum type
 	 * VALUE == parent enum class
 	 */
-	private Map<Object, EnumType> enum2ParentClass = new HashMap<Object, EnumType>();
+	private Map<EnumObject, EnumType> enum2ParentClass = new HashMap<EnumObject, EnumType>();
+	
+	/**
+	 * KEY   == parent enum class
+	 * VALUE == enum within parent class representing THIS enum type
+	 */
+	private Map<EnumType, EnumObject> parentClass2Enum = new HashMap<EnumType, EnumObject>();
+	
+	/**
+	 * KEY   == enum within parent class representing THIS enum type
+	 * VALUE == parent enum class
+	 * 
+	 * CACHE - contains all parent classes in here
+	 */
+	private Map<EnumObject, EnumType> enum2ParentClassAll = new HashMap<EnumObject, EnumType>();
+	
+	/**
+	 * KEY   == parent enum class
+	 * VALUE == enum within parent class representing THIS enum type
+	 * 
+	 * CACHE - contains all parent classes in here
+	 */
+	private Map<EnumType, EnumObject> parentClass2EnumAll = new HashMap<EnumType, EnumObject>();
+	
 	
 	/**
 	 * Enum represented by this EnumType is extending following class.
 	 */
 	private Map<Class, EnumType> extending = new HashMap<Class, EnumType>(); 
-		
-
 		
 	public EnumType(Class enumClass) {
 		this.enumClass = enumClass;	
@@ -111,6 +134,60 @@ public class EnumType {
 	// =========================
 	
 	/**
+	 * enumType SHOULD BE a parent of this type ... we try to find this.
+	 * @param enumType
+	 * @return
+	 */
+	protected EnumObject findParentOf(EnumType enumType) {
+		if (this == enumType) return null;
+		EnumObject result = parentClass2EnumAll.get(enumType);
+		if (result != null) return result;	
+		result = parentClass2Enum.get(enumType);
+		if (result != null) {
+			parentClass2EnumAll.put(enumType, result);
+			return result;
+		}
+		for (EnumType parentType : parentClass2Enum.keySet()) {
+			result = parentType.findParentOf(enumType);
+			if (result != null) {
+				parentClass2EnumAll.put(enumType, result);
+				return result;
+			}			
+		}	
+		return null;
+	}
+	
+	/**
+	 * enumClass SHOULD BE a parent of this type ... we try to find this.
+	 * @param enumClass
+	 * @return
+	 */
+	protected EnumObject findParentOf(Class enumClass) {
+		EnumType enumType = Enums.getInstance().getEnumType(enumClass);
+		return findParentOf(enumType);		
+	}
+	
+	/**
+	 * Is THIS ENUM TYPE the same type of 'enumClass'?
+	 * @param enumClass
+	 * @return
+	 */
+	public boolean isExactly(Class enumClass) {
+		if (enumClass == null) return false;
+		return enumClass == this.enumClass;
+	}
+	
+	/**
+	 * Is THIS ENUM TYPE represented by enumType?
+	 * @param enumType
+	 * @return
+	 */
+	public boolean isExactly(EnumType enumType) {
+		if (enumType == null) return false;
+		return this == enumType;
+	}
+	
+	/**
 	 * Is THIS ENUM TYPE the same type or children of 'enumClass'?
 	 * @param enumClass
 	 * @return
@@ -118,10 +195,21 @@ public class EnumType {
 	public boolean isA(Class enumClass) {
 		if (enumClass == null) return false;
 		if (enumClass == this.enumClass) return true;
-		for (EnumType parent : extending.values()) {
-			return isA(enumClass);
-		}
-		return false;
+		EnumType enumType = Enums.getInstance().getEnumType(enumClass);
+		findParentOf(enumType); // populates parentClass2EnumAll
+		return parentClass2EnumAll.containsKey(enumType);
+	}
+	
+	/**
+	 * Is THIS ENUM TYPE represented by enumInstance or is CHILD type of enumInstance CHILD ENUM TYPE?
+	 * @param enumInstance
+	 * @return
+	 */
+	public boolean isA(EnumType enumType) {
+		if (enumType == null) return false;
+		if (this == enumType) return true;
+		findParentOf(enumType); // populates parentClass2EnumAll
+		return parentClass2EnumAll.containsKey(enumType);
 	}
 	
 	/**
@@ -135,6 +223,19 @@ public class EnumType {
 		return isA(enumObject.childType);
 	}
 	
+	/**
+	 * 'enumClass' should be parent of this {@link EnumType} and we return instance of EnumObject
+	 * that is representing THIS ENUM TYPE within 'enumClass'. 
+	 * @param enumClass
+	 * @return
+	 */
+	public EnumObject getAs(Class enumClass) {
+		EnumType enumType = Enums.getInstance().getEnumType(enumClass);
+		if (enumClass == null) return null;
+		findParentOf(enumType); // populates parentClass2EnumAll
+		return parentClass2EnumAll.get(enumType);
+	}
+	
 	// =================
 	// REGISTERING STUFF
 	// =================
@@ -145,7 +246,7 @@ public class EnumType {
 			throw new RuntimeException("Enum object name clash for '" + enumObject.name + "'! Cannot register " + enumObject + " as there is already registered enum object " + allEnumObjects.get(enumObject.name) + ".");
 		}
 		
-		allEnums.put(enumObject.name, enumObject.value);
+		allEnums.put(enumObject.name, enumObject.enumInstance);
 		allEnumObjects.put(enumObject.name, enumObject);
 		
 		// RECURSIVELY REGISTER TO PARENTS AS WELL...
@@ -159,7 +260,7 @@ public class EnumType {
 				
 		// REGISTER OBJECT		
 		registerChildEnum(enumObject);
-		ownEnums.put(enumObject.name, enumObject.value);
+		ownEnums.put(enumObject.name, enumObject.enumInstance);
 		ownEnumObjects.put(enumObject.name, enumObject);		
 		
 		// REGISTER CHILD CLASS
@@ -182,6 +283,7 @@ public class EnumType {
 	
 	protected void registerParentClass(EnumObject enumObject, EnumType enumParentType) {
 		enum2ParentClass.put(enumObject, enumParentType);
+		parentClass2Enum.put(enumParentType, enumObject);
 	}
 	
 	// =====
